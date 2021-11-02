@@ -28,7 +28,6 @@ class LabelSmoothingCrossEntropy(nn.Layer):
 
 
 class SoftTargetCrossEntropy(nn.Layer):
-
     def __init__(self):
         super(SoftTargetCrossEntropy, self).__init__()
 
@@ -39,8 +38,7 @@ class SoftTargetCrossEntropy(nn.Layer):
 
 def build_criterion(config, train=True):
     if config.AUG.MIXUP_PROB > 0.0 and config.LOSS.LOSS == 'softmax':
-        criterion = SoftTargetCrossEntropy() \
-            if train else nn.CrossEntropyLoss()
+        criterion = SoftTargetCrossEntropy() if train else nn.CrossEntropyLoss()
     elif config.LOSS.LABEL_SMOOTHING > 0.0 and config.LOSS.LOSS == 'softmax':
         criterion = LabelSmoothingCrossEntropy(config.LOSS.LABEL_SMOOTHING)
     elif config.LOSS.LOSS == 'softmax':

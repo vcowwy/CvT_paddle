@@ -16,7 +16,7 @@ def build_lr_scheduler(cfg, optimizer, begin_epoch):
         lr_scheduler.step(begin_epoch)
 
     else:
-        raise ValueError('Unknown lr scheduler: {}'.format(cfg.TRAIN.
-            LR_SCHEDULER.METHOD))
+        raise ValueError('Unknown lr scheduler: {}'.format(
+            cfg.TRAIN.LR_SCHEDULER.METHOD))
 
     return lr_scheduler

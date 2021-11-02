@@ -19,8 +19,8 @@ from .rearrange import Rearrange
 
 from ppcls.vision_transformer import DropPath
 from ppcls.vision_transformer import trunc_normal_
-from ppcls.vision_transformer import zeros_
-from ppcls.vision_transformer import ones_
+#from ppcls.vision_transformer import zeros_
+#from ppcls.vision_transformer import ones_
 from ppcls.vision_transformer import Identity
 
 from .registry import register_model
@@ -134,7 +134,7 @@ class Attention(nn.Layer):
                           stride,
                           method):
         if method == 'dw_bn':
-            proj = nn.Sequential(nn.LayerDict(OrderedDict([
+            proj = nn.Sequential(
                 ('conv', nn.Conv2D(
                     dim_in,
                     dim_in,
@@ -144,17 +144,15 @@ class Attention(nn.Layer):
                     groups=dim_in,
                     bias_attr=False)),
                 ('bn', nn.BatchNorm2D(dim_in)),
-                ('rearrage', Rearrange()),
-            ])))
+                ('rearrage', Rearrange()))
         elif method == 'avg':
-            proj = nn.Sequential(nn.LayerDict(OrderedDict([
+            proj = nn.Sequential(
                 ('avg', nn.AvgPool2D(
                     kernel_size=kernel_size,
                     padding=padding,
                     stride=stride,
                     ceil_mode=True)),
-                ('rearrage', Rearrange()),
-            ])))
+                ('rearrage', Rearrange()))
         elif method == 'linear':
             proj = None
         else:
@@ -381,10 +379,9 @@ class VisionTransformer(nn.Layer):
 
         with_cls_token = kwargs['with_cls_token']
         if with_cls_token:
-            self.cls_token = paddle.create_parameter(
-                shape=paddle.zeros([1, 1, embed_dim]).shape,
-                dtype=str(paddle.zeros([1, 1, embed_dim]).numpy().dtype),
-                default_initializer=paddle.nn.initializer.Assign(paddle.zeros([1, 1, embed_dim])))
+            self.cls_token = self.create_parameter(
+                shape=[1, 1, embed_dim],
+                attr=paddle.ParamAttr(initializer=paddle.nn.initializer.Constant(value=0.0)))
             self.cls_token.stop_gradient = False
         else:
             self.cls_token = None
@@ -410,6 +407,7 @@ class VisionTransformer(nn.Layer):
                 )
             )
         self.blocks = nn.LayerList(blocks)
+
         if self.cls_token is not None:
             trunc_normal_(self.cls_token)
 
@@ -421,25 +419,32 @@ class VisionTransformer(nn.Layer):
     def _init_weights_trunc_normal(self, m):
         if isinstance(m, paddle.nn.Linear):
             logging.info('=> init weight of Linear from trunc norm')
-            trunc_normal_(m.weight)
+            #trunc_normal_(m.weight)
+            m._weight_attr = paddle.nn.initializer.TruncatedNormal(std=0.02)
             if m.bias is not None:
                 logging.info('=> init bias of Linear to zeros')
-                zeros_(m.bias)
+                #zeros_(m.bias)
+                m._bias_attr = paddle.nn.initializer.Constant(value=0.0)
         elif isinstance(m, (paddle.nn.LayerNorm, paddle.nn.BatchNorm2D)):
-            zeros_(m.bias)
-            ones_(m.weight)
+            #zeros_(m.bias)
+            m._bias_attr = paddle.nn.initializer.Constant(value=0.0)
+            #ones_(m.weight)
+            m._weight_attr = paddle.nn.initializer.Constant(value=1.0)
 
     def _init_weights_xavier(self, m):
         if isinstance(m, paddle.nn.Linear):
             logging.info('=> init weight of Linear from xavier uniform')
             #nn.init.xavier_uniform_(m.weight)
-            m.weight = nn.initializer.XavierNormal()
+            m._weight_attr = nn.initializer.XavierNormal()
             if m.bias is not None:
                 logging.info('=> init bias of Linear to zeros')
-                zeros_(m.bias)
+                #zeros_(m.bias)
+                m._bias_attr = paddle.nn.initializer.Constant(value=0.0)
         elif isinstance(m, (paddle.nn.LayerNorm, paddle.nn.BatchNorm2D)):
-            zeros_(m.bias)
-            ones_(m.weight)
+            #zeros_(m.bias)
+            m._bias_attr = paddle.nn.initializer.Constant(value=0.0)
+            #ones_(m.weight)
+            m._weight_attr = paddle.nn.initializer.Constant(value=1.0)
 
     def forward(self, x):
         x = self.patch_embed(x)
@@ -449,7 +454,7 @@ class VisionTransformer(nn.Layer):
 
         cls_tokens = None
         if self.cls_token is not None:
-            cls_tokens = self.cls_token.expand(B, -1, -1)
+            cls_tokens = self.cls_token.expand([B, -1, -1])
             x = paddle.concat((cls_tokens, x), axis=1)
 
         x = self.pos_drop(x)
@@ -514,7 +519,8 @@ class ConvolutionalVisionTransformer(nn.Layer):
         self.cls_token = spec['CLS_TOKEN'][-1]
 
         self.head = nn.Linear(dim_embed, num_classes) if num_classes > 0 else Identity()
-        trunc_normal_(self.head.weight)
+        #trunc_normal_(self.head.weight)
+        self.head._weight_attr = paddle.nn.initializer.TruncatedNormal(std=0.02)
 
     def init_weights(self, pretrained='', pretrained_layers=[], verbose=True):
         if os.path.isfile(pretrained):

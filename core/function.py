@@ -8,9 +8,9 @@ import time
 import paddle
 
 from paddle.amp import auto_cast
+from .mixup import Mixup
 
 from core.evaluate import accuracy
-from mixup import Mixup
 from utils.comm import comm
 
 
@@ -39,16 +39,9 @@ def train_one_epoch(config, train_loader, model, criterion, optimizer,
             x, y = mixup_fn(x, y)
 
         with auto_cast(enable=config.AMP.ENABLED):
-            if config.AMP.ENABLED and config.AMP.MEMORY_FORMAT == 'nwhc':#default=nchw
-                x = paddle.transpose(x, perm=[0, 3, 2, 1])
-                y = paddle.transpose(x, perm=[0, 3, 2, 1])
-                #x = x.contiguous(memory_format=torch.channels_last)
-                #y = y.contiguous(memory_format=torch.channels_last)
-
             outputs = model(x)
             loss = criterion(outputs, y)
 
-        #optimizer.zero_grad()
         optimizer.clear_grad()
         is_second_order = hasattr(optimizer, 'is_second_order') and optimizer.is_second_order
 
@@ -91,7 +84,6 @@ def train_one_epoch(config, train_loader, model, criterion, optimizer,
                                                                       data_time=data_time, loss=losses,
                                                                       top1=top1, top5=top5))
             logging.info(msg)
-        #torch.cuda.synchronize()
 
     if writer_dict and comm.is_main_process():
         writer = writer_dict['writer']
@@ -116,7 +108,6 @@ def test(config, val_loader, model, criterion, output_dir, tb_log_dir,
     end = time.time()
 
     for i, (x, y) in enumerate(val_loader):
-
         outputs = model(x)
         if valid_labels:
             outputs = outputs[:, valid_labels]

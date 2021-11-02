@@ -7,16 +7,18 @@ import paddle.optimizer as optim
 
 
 def _is_depthwise(m):
-    return ((isinstance(m, paddle.nn.Conv2D))
-            and (m.groups == m.in_channels)
-            and (m.groups == m.out_channels))
+    return (
+            isinstance(m, paddle.nn.Conv2D)
+            and m._parameters['groups'] == m._parameters['in_channels']
+            and m._groups == m.out_channels
+    )
 
 
 def set_wd(cfg, model):
     without_decay_list = cfg.TRAIN.WITHOUT_WD_LIST
     without_decay_depthwise = []
     without_decay_norm = []
-    for m in model.modules():
+    for m in model.sublayers():
         if _is_depthwise(m) and 'dw' in without_decay_list:
             without_decay_depthwise.append(m.weight)
         elif isinstance(m, paddle.nn.BatchNorm2D) and 'bn' in without_decay_list:
@@ -43,7 +45,7 @@ def set_wd(cfg, model):
     for n, p in model.named_parameters():
         ever_set = False
 
-        if p.requires_grad is False:
+        if p.stop_gradient is True:
             continue
 
         skip_flag = False

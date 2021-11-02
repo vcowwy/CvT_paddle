@@ -7,32 +7,27 @@ import paddle
 class Scheduler:
 
     def __init__(self,
-                 optimizer,
+                 optimizer: paddle.optimizer.Optimizer,
                  param_group_field: str,
                  noise_range_t=None,
                  noise_type='normal',
                  noise_pct=0.67,
                  noise_std=1.0,
                  noise_seed=None,
-                 initialize: bool=True) ->None:
+                 initialize: bool=True) -> None:
         self.optimizer = optimizer
         self.param_group_field = param_group_field
         self._initial_param_group_field = f'initial_{param_group_field}'
         if initialize:
-            for i, group in enumerate(self.optimizer.param_groups):
+            for i, group in enumerate(self.optimizer._parameter_list):
                 if param_group_field not in group:
-                    raise KeyError(
-                        f'{param_group_field} missing from param_groups[{i}]')
-                group.setdefault(self._initial_param_group_field, group[
-                    param_group_field])
+                    raise KeyError(f'{param_group_field} missing from param_groups[{i}]')
+                group.setdefault(self._initial_param_group_field, group[param_group_field])
         else:
-            for i, group in enumerate(self.optimizer.param_groups):
+            for i, group in enumerate(self.optimizer._parameter_list):
                 if self._initial_param_group_field not in group:
-                    raise KeyError(
-                        f'{self._initial_param_group_field} missing from param_groups[{i}]'
-                        )
-        self.base_values = [group[self._initial_param_group_field] for
-            group in self.optimizer.param_groups]
+                    raise KeyError(f'{self._initial_param_group_field} missing from param_groups[{i}]')
+        self.base_values = [group[self._initial_param_group_field] for group in self.optimizer._parameter_list]
         self.metric = None
         self.noise_range_t = noise_range_t
         self.noise_pct = noise_pct
@@ -41,11 +36,10 @@ class Scheduler:
         self.noise_seed = noise_seed if noise_seed is not None else 42
         self.update_groups(self.base_values)
 
-    def state_dict(self) ->Dict[str, Any]:
-        return {key: value for key, value in self.__dict__.items() if key !=\
-            'optimizer'}
+    def state_dict(self) -> Dict[str, Any]:
+        return {key: value for key, value in self.__dict__.items() if key != 'optimizer'}
 
-    def load_state_dict(self, state_dict: Dict[str, Any]) ->None:
+    def load_state_dict(self, state_dict: Dict[str, Any]) -> None:
         self.__dict__.update(state_dict)
 
     def get_epoch_values(self, epoch: int):
@@ -54,7 +48,7 @@ class Scheduler:
     def get_update_values(self, num_updates: int):
         return None
 
-    def step(self, epoch: int, metric: float=None) ->None:
+    def step(self, epoch: int, metric: float=None) -> None:
         self.metric = metric
         values = self.get_epoch_values(epoch)
         if values is not None:
@@ -70,15 +64,14 @@ class Scheduler:
 
     def update_groups(self, values):
         if not isinstance(values, (list, tuple)):
-            values = [values] * len(self.optimizer.param_groups)
-        for param_group, value in zip(self.optimizer.param_groups, values):
+            values = [values] * len(self.optimizer._parameter_list)
+        for param_group, value in zip(self.optimizer._parameter_list, values):
             param_group[self.param_group_field] = value
 
     def _add_noise(self, lrs, t):
         if self.noise_range_t is not None:
             if isinstance(self.noise_range_t, (list, tuple)):
-                apply_noise = self.noise_range_t[0] <= t < self.noise_range_t[1
-                    ]
+                apply_noise = self.noise_range_t[0] <= t < self.noise_range_t[1]
             else:
                 apply_noise = t >= self.noise_range_t
             if apply_noise:
@@ -92,7 +85,7 @@ class Scheduler:
                         if abs(noise) < self.noise_pct:
                             break
                 else:
-                    #noise = 2 * (torch2paddle.rand(1, generator=g).item() - 0.5) * self.noise_pct
+                    #noise = 2 * (paddle.rand(1, generator=g).item() - 0.5) * self.noise_pct
                     noise = 2 * (paddle.rand(1).item() - 0.5) * self.noise_pct
                 lrs = [(v + v * noise) for v in lrs]
         return lrs

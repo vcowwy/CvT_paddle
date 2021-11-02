@@ -5,6 +5,7 @@ from __future__ import print_function
 import os.path as op
 import yaml
 from yacs.config import CfgNode as CN
+
 from utils.comm import comm
 
 _C = CN()
@@ -94,7 +95,7 @@ _C.TRAIN.OPTIMIZER = 'sgd'
 _C.TRAIN.OPTIMIZER_ARGS = CN(new_allowed=True)
 _C.TRAIN.MOMENTUM = 0.9
 _C.TRAIN.WD = 0.0001
-_C.TRAIN.WITHOUT_WD_LT = []
+_C.TRAIN.WITHOUT_WD_LIST = []
 _C.TRAIN.NESTEROV = True
 
 _C.TRAIN.GAMMA1 = 0.99
